@@ -10,32 +10,33 @@ async function main() {
     src: "stocks.riv",
     autoplay: true,
     canvas: el,
+    // autoBind: true,
+    autoBind: false,
     layout: new Layout({
       fit: Fit.Contain,
       alignment: Alignment.Center,
     }),
-    autoBind: false,
     stateMachines: "State Machine 1",
     onLoad: () => {
-      r.resizeDrawingSurfaceToCanvas();
-
-      const vm = r.viewModelByName("Dashboard");
-      const dashboardInstance = vm.instance();
+      // const dashboardInstance = r.viewModelInstance;
+      const vm = r.viewModelByName("Dashboard");;
+      const dashboardInstance = vm.instance()
       r.bindViewModelInstance(dashboardInstance);
       console.log("Dashboard ViewModel Instance", dashboardInstance);
-      dashboardInstance.string("title").value = "My title";
-      // dashboardInstance.color("rootColor").value = Number.parseInt("ffc0ffee", 16);
-      dashboardInstance.color("rootColor").rgb(0, 255, 255);
 
-      const logoShapeEnum = dashboardInstance.enum("logoShape");
-      console.log(logoShapeEnum);
+      dashboardInstance.string("title").value = "My title";
+
+      // dashboardInstance.color("rootColor").rgb(0, 255, 255)
+      // dashboardInstance.color("rootColor").rgba(0, 255, 255, 100)
+      dashboardInstance.color("rootColor").value = Number.parseInt("ffc0ffee", 16);
+
+      const logoShapeEnum = dashboardInstance.enum("logoShape")
+      console.log(logoShapeEnum)
       logoShapeEnum.value = "triangle";
 
       // Nested artboards
 
       const appleStock = dashboardInstance.viewModel("apple");
-      console.log("Apple Stock ViewModel", appleStock);
-
       appleStock.string("name").value = "AAPL";
 
       const microsoftStock = dashboardInstance.viewModel("microsoft");
@@ -44,17 +45,15 @@ async function main() {
       const teslaStock = dashboardInstance.viewModel("tesla");
       teslaStock.string("name").value = "TSLA";
 
-      const logoTrigger = dashboardInstance.trigger("triggerSpinLogo");
-
       appleStock.color("currentColor").on((value) => {
         console.log("Apple Color Changed!", value);
-      })
+      });
 
-      const triggerButton = dashboardInstance.trigger("triggerButton");
+      const logoTrigger = dashboardInstance.trigger("triggerSpinLogo")
+      const triggerButton = dashboardInstance.trigger("triggerButton")
       triggerButton.on(() => {
         console.log("Button Triggered!");
       });
-
 
       const updateStocks = () => {
         const value1 = randomValue();
@@ -71,7 +70,10 @@ async function main() {
 
         setTimeout(updateStocks, 2000);
       };
+
       updateStocks();
+
+      r.resizeDrawingSurfaceToCanvas();
     },
   });
 
