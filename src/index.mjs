@@ -1,77 +1,224 @@
-import { Rive, Fit, Alignment, Layout } from "@rive-app/canvas";
+import { Rive, Fit, Alignment, Layout } from "@rive-app/webgl2";
 import "./styles.css";
 
 const el = document.getElementById("rive-canvas");
+const textEl = document.getElementById("your-name");
 
-const randomValue = () => Math.random() * 200 - 100;
+const GAME_DURATION = 15; // seconds
+const TARGET_WIDTH = 141; // pixels
+const TARGET_HEIGHT = 100; // pixels
+const ARTBOARD_WIDTH = 800; // pixels
+const ARTBOARD_HEIGHT = 600; // pixels
+const TIME_UI_WIDTH = 200;
+const TARGET_SPEED = 800; // ms
+
+const inputs = {}
+const gameData = {
+  score: 0,
+  timeLeft: 0,
+  name: "",
+  highScores: [
+    {
+      name: "AAA",
+      score: 10
+    },
+    {
+      name: "BBB",
+      score: 8
+    },
+    {
+      name: "CCC",
+      score: 5
+    },
+    {
+      name: "DDD",
+      score: 3
+    },
+    {
+      name: "7484",
+      score: 1
+    },
+    {
+      name: "AA111A",
+      score: 10
+    },
+    {
+      name: "BBB",
+      score: 80
+    },
+    {
+      name: "CC22C",
+      score: 52
+    },
+    {
+      name: "D33DD",
+      score: 1
+    },
+    {
+      name: "EE4E",
+      score: 5
+    }
+  ]
+}
+let targetIntervalId = undefined;
+
+const placeTarget = () => {
+  const halfTargetWidth = TARGET_WIDTH / 2;
+  const halfTargetHeight = TARGET_HEIGHT / 2;
+
+  // random x and y positions within the artboard bounds
+  const y = Math.random() * (ARTBOARD_HEIGHT - TARGET_HEIGHT) + halfTargetHeight;
+  inputs.targetY.value = y;
+
+  // if target is above 410, x position must be at least 200px from the edge
+  // This keeps it off the score and time UI elements
+  if (y < 410) {
+    const x = Math.random() * (ARTBOARD_WIDTH - TARGET_WIDTH) + halfTargetWidth;
+    inputs.targetX.value = x;
+  } else {
+    const x = Math.random() * (ARTBOARD_WIDTH - TARGET_WIDTH - (TIME_UI_WIDTH * 2)) + halfTargetWidth + TIME_UI_WIDTH;
+    inputs.targetX.value = x;
+  }
+
+  // create an interval to call this again in 1 second. If this is called before 1 second, cancel interval
+  clearInterval(targetIntervalId)
+  targetIntervalId = setTimeout(() => {
+    placeTarget();
+    console.log('interval')
+  }, TARGET_SPEED);
+}
+
+const getTop10 = (scores) => {
+  // sort by score descending
+  const sortedScores = scores.sort((a, b) => b.score - a.score);
+  // slice top 10
+  return sortedScores.slice(0, 10);
+}
+
+const initTextInput = (vmi) => {
+  const focused = vmi.boolean("inputFocused");
+  const textValue = vmi.string("name");
+
+  // Listen for focus changes from Rive (click)
+  focused.on((value) => {
+    if (value) {
+      textEl.focus();
+    }
+  });
+
+  // listen for focus changes from HTML (tab, remove focus)
+  textEl.addEventListener("focus", () => {
+    focused.value = true;
+  });
+  textEl.addEventListener("blur", () => {
+    focused.value = false;
+  });
+
+  // listen for HTML text value changes
+  textEl.addEventListener("input", (event) => {
+    const sanitized = event.target.value.replace(/[^a-zA-Z0-9]/g, "")
+    const uppercase = sanitized.toUpperCase();
+
+    gameData.name = uppercase;
+    textValue.value = uppercase;
+  });
+}
+
+const updateTime = (seconds) => {
+  // convert seconds to minutes and seconds
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  const formattedTime = `${minutes.toString()}:${remainingSeconds.toString().padStart(2, '0')}`;
+
+  inputs.timeLeftString.value = formattedTime
+}
+
+const startGame = () => {
+  gameData.score = 0;
+  gameData.timeLeft = GAME_DURATION;
+  updateTime(gameData.timeLeft);
+  inputs.gameState.value = "playing";
+  placeTarget()
+
+  // stoppable countdown timer
+  const timer = setInterval(() => {
+    gameData.timeLeft -= 1;
+    updateTime(gameData.timeLeft, inputs.timeLeftString);
+
+    if (gameData.timeLeft <= 0) {
+      clearInterval(timer);
+      inputs.gameState.value = "gameOver";
+
+      onGameOver();
+    }
+  }, 1000);
+
+}
+
+const onGameOver = () => {
+  clearInterval(targetIntervalId)
+  inputs.timeLeftString.value = "0:00";
+
+  if (gameData.score > 0) {
+    gameData.highScores.push({
+      name: gameData.name,
+      score: gameData.score
+    });
+  }
+
+  gameData.highScores = getTop10(gameData.highScores);
+  console.log(gameData.highScores);
+}
 
 async function main() {
   const r = new Rive({
-    src: "stocks.riv",
+    src: "kill_comic_sans.riv",
     autoplay: true,
+    autoBind: true,
     canvas: el,
     layout: new Layout({
       fit: Fit.Contain,
       alignment: Alignment.Center,
     }),
-    autoBind: false,
     stateMachines: "State Machine 1",
     onLoad: () => {
-      r.resizeDrawingSurfaceToCanvas();
+      const vmi = r.viewModelInstance;
+      console.log("vmi.properties", vmi.properties);
 
-      const vm = r.viewModelByName("Dashboard");
-      const dashboardInstance = vm.instance();
-      r.bindViewModelInstance(dashboardInstance);
-      console.log("Dashboard ViewModel Instance", dashboardInstance);
-      dashboardInstance.string("title").value = "My title";
-      // dashboardInstance.color("rootColor").value = Number.parseInt("ffc0ffee", 16);
-      dashboardInstance.color("rootColor").rgb(0, 255, 255);
+      inputs.gameState = vmi.enum("gameState");
+      inputs.timeLeft = vmi.string("timeLeft");
+      inputs.score = vmi.number("score");
+      inputs.timeLeftString = vmi.string("timeLeft");
+      inputs.startGameTrigger = vmi.trigger("startGame");
+      inputs.targetHitTrigger = vmi.trigger("targetHit");
+      inputs.inputFocused = vmi.boolean("inputFocused");
+      inputs.scoreNumber = vmi.number("score");
+      inputs.targetX = vmi.number("targetX");
+      inputs.targetY = vmi.number("targetY");
 
-      const logoShapeEnum = dashboardInstance.enum("logoShape");
-      console.log(logoShapeEnum);
-      logoShapeEnum.value = "triangle";
+      inputs.timeLeftString.value = "0:00"; // initial value
 
-      // Nested artboards
-
-      const appleStock = dashboardInstance.viewModel("apple");
-      console.log("Apple Stock ViewModel", appleStock);
-
-      appleStock.string("name").value = "AAPL";
-
-      const microsoftStock = dashboardInstance.viewModel("microsoft");
-      microsoftStock.string("name").value = "MSFT";
-
-      const teslaStock = dashboardInstance.viewModel("tesla");
-      teslaStock.string("name").value = "TSLA";
-
-      const logoTrigger = dashboardInstance.trigger("triggerSpinLogo");
-
-      appleStock.color("currentColor").on((value) => {
-        console.log("Apple Color Changed!", value);
+      const startGameTrigger = vmi.trigger("startGame");
+      startGameTrigger.on(() => {
+        if (inputs.gameState.value !== "playing") {
+          inputs.scoreNumber.value = 0;
+          startGame();
+        }
       })
 
-      const triggerButton = dashboardInstance.trigger("triggerButton");
-      triggerButton.on(() => {
-        console.log("Button Triggered!");
+      const targetHitTrigger = vmi.trigger("targetHit");
+      targetHitTrigger.on(() => {
+        console.log("target hit");
+        gameData.score += 1;
+        inputs.scoreNumber.value = gameData.score;
+        placeTarget();
       });
 
+      // Set up the "enter name" text input
+      initTextInput(vmi);
 
-      const updateStocks = () => {
-        const value1 = randomValue();
-        const value2 = randomValue();
-        const value3 = randomValue();
-
-        appleStock.number("num").value = value1;
-        microsoftStock.number("num").value = value2;
-        teslaStock.number("num").value = value3;
-
-        if ((value1 > 0 && value2 > 0 && value3 > 0) || (value1 < 0 && value2 < 0 && value3 < 0)) {
-          logoTrigger?.trigger();
-        }
-
-        setTimeout(updateStocks, 2000);
-      };
-      updateStocks();
+      // resize rive on init
+      r.resizeDrawingSurfaceToCanvas();
     },
   });
 
@@ -83,5 +230,6 @@ async function main() {
     false
   );
 }
+
 
 main();
