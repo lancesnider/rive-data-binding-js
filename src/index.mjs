@@ -4,7 +4,7 @@ import "./styles.css";
 const el = document.getElementById("rive-canvas");
 const textEl = document.getElementById("your-name");
 
-const GAME_DURATION = 15; // seconds
+const GAME_DURATION = 60; // seconds
 const TARGET_WIDTH = 141; // pixels
 const TARGET_HEIGHT = 100; // pixels
 const ARTBOARD_WIDTH = 800; // pixels
@@ -12,7 +12,9 @@ const ARTBOARD_HEIGHT = 600; // pixels
 const TIME_UI_WIDTH = 200;
 const TARGET_SPEED = 800; // ms
 
-const inputs = {}
+const numberOfBullets = 8; // how many bullets instances in the Rive file
+
+// TO DO: This is just fake dat that needs to be stored somewhere
 const gameData = {
   score: 0,
   timeLeft: 0,
@@ -60,6 +62,10 @@ const gameData = {
     }
   ]
 }
+
+const inputs = {
+  bulletHoles: []
+}
 let targetIntervalId = undefined;
 
 const placeTarget = () => {
@@ -84,7 +90,6 @@ const placeTarget = () => {
   clearInterval(targetIntervalId)
   targetIntervalId = setTimeout(() => {
     placeTarget();
-    console.log('interval')
   }, TARGET_SPEED);
 }
 
@@ -133,12 +138,34 @@ const updateTime = (seconds) => {
   inputs.timeLeftString.value = formattedTime
 }
 
+let currentBulletId = 0
+
+const clickListener = (event) => {
+  // get the bounding rectangle of the canvas
+  const rect = el.getBoundingClientRect();
+  // get the x and y coordinates of the click relative to the canvas
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const currentBullet = inputs.bulletHoles[currentBulletId]
+
+  currentBullet.number("x").value = x;
+  currentBullet.number("y").value = y;
+  currentBullet.trigger("bangTrigger").trigger();
+
+  currentBulletId += 1;
+  if (currentBulletId >= numberOfBullets) {
+    currentBulletId = 0;
+  }
+}
 const startGame = () => {
   gameData.score = 0;
   gameData.timeLeft = GAME_DURATION;
   updateTime(gameData.timeLeft);
   inputs.gameState.value = "playing";
   placeTarget()
+
+  // add click listener to the canvas
 
   // stoppable countdown timer
   const timer = setInterval(() => {
@@ -160,6 +187,7 @@ const onGameOver = () => {
   inputs.timeLeftString.value = "0:00";
 
   if (gameData.score > 0) {
+    // TO DO: save high score
     gameData.highScores.push({
       name: gameData.name,
       score: gameData.score
@@ -167,7 +195,13 @@ const onGameOver = () => {
   }
 
   gameData.highScores = getTop10(gameData.highScores);
-  console.log(gameData.highScores);
+
+  for (let i = 0; i < 10; i++) {
+    const highScoreVmi = inputs[`highScoreName${i}`];
+    highScoreVmi.number("place").value = i + 1;
+    highScoreVmi.string("name").value = gameData.highScores[i]?.name || "";
+    highScoreVmi.number("score").value = gameData.highScores[i]?.score || 0;
+  }
 }
 
 async function main() {
@@ -183,7 +217,6 @@ async function main() {
     stateMachines: "State Machine 1",
     onLoad: () => {
       const vmi = r.viewModelInstance;
-      console.log("vmi.properties", vmi.properties);
 
       inputs.gameState = vmi.enum("gameState");
       inputs.timeLeft = vmi.string("timeLeft");
@@ -195,6 +228,19 @@ async function main() {
       inputs.scoreNumber = vmi.number("score");
       inputs.targetX = vmi.number("targetX");
       inputs.targetY = vmi.number("targetY");
+
+      const vmiBulletHoles = vmi.viewModel("property of BulletHoles");
+
+      for (let i = 0; i < numberOfBullets; i++) {
+        inputs.bulletHoles[i] = vmiBulletHoles.viewModel(`property of BulletHole ${i + 1}`);
+      }
+      el.addEventListener("click", clickListener)
+
+      // for loop 10 time
+      for (let i = 0; i < 10; i++) {
+        inputs[`highScoreName${i}`] = vmi.viewModel(`property of HighScore ${i + 1}`);
+      }
+
 
       inputs.timeLeftString.value = "0:00"; // initial value
 
