@@ -7,15 +7,43 @@
 
   <body>
     <!-- https://rive.app/community/2732-5606-clean-the-car/ -->
-    <canvas
+    <div
       style="
         position: absolute;
-        height: 100%;
-        width: 100%;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
         background-color: black;
       "
-      id="rive-canvas"
-    ></canvas>
+    >
+      <canvas
+        id="rive-canvas"
+        style="
+          aspect-ratio: 4 / 3;
+          width: 100%;
+          max-width: 800px;
+          max-height: 100%;
+          background-color: black;
+          display: block;
+          cursor: none;
+        "
+      ></canvas>
+    </div>
+    <input
+      style="
+        opacity: 0;
+        position: absolute;
+        top: -400px;
+        left: 0;
+      "
+      id="your-name"
+      name="yourName"
+      autocomplete="false"
+    />
     <script src="./index.mjs" type="module"></script>
   </body>
 </html>

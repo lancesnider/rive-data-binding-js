@@ -1,2 +1,7 @@
-# rive-data-binding
-Created with CodeSandbox
+# Kill Comic Sans
+
+```
+yarn
+yarn start
+```
+
